@@ -36,14 +36,14 @@ def broadcast(message):
 """ functions between client and server only,
     this methods is for: getting chat info, change connectivity status etc """
 
+
 def get_online_members():
     ids = [x for x in IDS]
     return ",".join(ids)
 
+
 def get_file_list():
     return server_files
-
-
 
 
 def disconnect(client):
@@ -51,7 +51,6 @@ def disconnect(client):
     members.remove(client)
     client.close()
     IDS.pop(index)
-
 
 
 def handle(client):
@@ -63,7 +62,7 @@ def handle(client):
 
             """ private messaging """
             if "message-" in readable_message:
-                message_info = readable_message.split(":",2)
+                message_info = readable_message.split(":", 2)
                 addressee = message_info[1][9:]
                 message_data = message_info[2][:-3]
                 try:
@@ -86,7 +85,7 @@ def handle(client):
 
             elif "disconnect" in readable_message:
                 print(f"{IDS[members.index(client)]} has disconnected")
-                 # client.send(f"{nicknames[clients.index(client)]} has disconnected".encode('utf-8'))
+                # client.send(f"{nicknames[clients.index(client)]} has disconnected".encode('utf-8'))
                 broadcast(f"{IDS[members.index(client)]} has disconnected\n".encode('utf-8'))
                 disconnect(client)
                 break
@@ -97,15 +96,6 @@ def handle(client):
         except:
             disconnect(client)
             break
-
-
-
-
-
-
-
-
-
 
 
 def server_lobby():
@@ -126,12 +116,13 @@ def server_lobby():
 
         """ finish connectivity steps """
         print(f"ID of the member is {client_id}")
-        broadcast(f"{client_id} has joined the chat")
+        broadcast(f"{client_id} has joined the chat\n".encode('utf-8'))
         client.send("successfully connected to the server".encode('utf-8'))
 
         """ opening a communication thread for the client """
-        client_thread = threading.Thread(target=, args=(client,))
+        client_thread = threading.Thread(target=handle, args=(client,))
         client_thread.start()
+
 
 print("server running")
 server_lobby()

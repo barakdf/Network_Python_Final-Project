@@ -72,8 +72,7 @@ class Client:
         while self.running:
             try:
                 message = self.sock.recv(1024).decode('utf-8')
-                print("mes=====", message)
-                print(f"{self.id} has disconnected")
+                print(message)
                 if message == "connect":
                     self.sock.send(self.id.encode('utf-8'))
                 elif message == f"{self.id} has disconnected\n":

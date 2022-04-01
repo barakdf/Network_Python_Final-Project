@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 
 HOST = '127.0.0.1'  # local host address.
 PORT = 55000
@@ -79,21 +80,25 @@ def download_file(client, file_name):
         client.sendto(f_error.encode("utf-8"), c_address)
         transfer_sock.close()
 
+    time_measure = time.time()
     file_len = int(len(file))
     last_packet = (file_len / block) + 1
     send_base = 0
 
     pack_count = 0
     pack_loss = 0
-    checked_ack = send_base
-
 
     while send_base < last_packet:
+        checked_ack = send_base
         pack_count += 1
+        RTT = time.time()
         for i in range(N):
             send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
 
+        RTT = time.time() - RTT
+
         while checked_ack < send_base + N - 1:
+            delay = time.time()
             try:
                 (ACK, address) = transfer_sock.recvfrom(1024)
             except:
@@ -104,11 +109,11 @@ def download_file(client, file_name):
             if reply == checked_ack:
                 checked_ack += 1
 
-            elif reply == "finish":
+            elif reply == "done":
                 if checked_ack == last_packet:
                     break
 
-            elif int(reply) > checked_ack:
+            elif (int(reply) > checked_ack) or (time.time() - delay > RTT):
                 pack_loss += 1
                 send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
 

@@ -89,7 +89,7 @@ class Client:
                 file_size = int(packet_message[1])
                 packet_len = int(packet_message[2])
                 packet_data = packet_message[3]
-                # print("data- ", packet_data)
+                print("data-len ", len(packet_data))
                 print("Packet-len ", packet_len)
                 print("file-size ", file_size)
                 print(seq_num)

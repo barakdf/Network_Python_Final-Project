@@ -52,16 +52,23 @@ def get_file_list():
 
 
 def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
-    for i in range(checked_ack, send_base + N):
-        packet = file[(send_base + i) * block: ((send_base + i) * block) + block]
+    last_byte = ""
+    for seq_num in range(checked_ack, send_base + N):
+        if seq_num == int(file_len / block) + 1:
+            packet = file[seq_num * block:]
+        else:
+            packet = file[seq_num * block: ((seq_num + 1) * block)]
 
         # print("SEQ", i)
-
-        seq_num = i
+        print(seq_num)
         packet_len = len(packet)
 
         full_packet = f"{seq_num}#{file_len}#{packet_len}#{packet}".encode("utf-8")
         transfer_sock.sendto(full_packet, c_address)
+        last_byte = full_packet[-1]
+        if seq_num == int(file_len / block) + 1:
+            break
+    return last_byte
 
 
 def download_file(client, file_name):
@@ -84,19 +91,20 @@ def download_file(client, file_name):
 
     time_measure = time.time()
     file_len = int(len(file))
-    last_packet = (file_len / block) + 1
+    print(file_len)
+    last_packet = int(file_len / block) + 1
+    print("last packet", last_packet)
     send_base = 0
 
     pack_count = 0
     pack_loss = 0
-
+    last_byte = ""
     checked_ack = send_base
     while send_base < last_packet:
         print("HERE")
         pack_count += 1
         RTT = time.time()
-        for i in range(N):
-            send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
+        last_byte = send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
 
         RTT = time.time() - RTT
 
@@ -122,11 +130,12 @@ def download_file(client, file_name):
                 pack_loss += 1
                 send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
 
-        send_base = checked_ack
         print("send packet --> ", send_base)
         print("packet loss --> ", pack_loss)
+        send_base = checked_ack
 
     transfer_sock.close()
+    client.send(f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}".encode("utf-8"))
 
 
 def disconnect(client):

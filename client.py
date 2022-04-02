@@ -1,6 +1,7 @@
 import socket
 import threading
 import tkinter
+from time import sleep
 from tkinter import simpledialog
 import tkinter.scrolledtext
 
@@ -65,11 +66,13 @@ class Client:
     def download(self, file):
         transfer_port = 55001
         transfer_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        print("ready ro receive")
 
-        with open("downloaded_file_" + file, 'w') as f:
+        with open(f"downloaded_file_{file}", 'w') as f:
 
             packet_count = 0
             transfer_sock.bind((HOST, transfer_port))
+            sleep(1)
 
             while True:
 
@@ -86,10 +89,15 @@ class Client:
                 file_size = int(packet_message[1])
                 packet_len = int(packet_message[2])
                 packet_data = packet_message[3]
+                # print("data- ", packet_data)
+                print("Packet-len ", packet_len)
+                print("file-size ", file_size)
+                print(seq_num)
 
                 progress = 0
 
                 if int(seq_num) == packet_count:
+                    print("Got here")
                     packet_count += 1
 
                     f.write(packet_data)
@@ -106,7 +114,7 @@ class Client:
                     last_packet = str(packet_count).encode("utf-8")
                     transfer_sock.sendto(last_packet, server_ads)
 
-                if packet_len < file_size:
+                if packet_len < 500 or packet_len == file_size:
                     done = "done".encode("utf-8")
                     transfer_sock.sendto(done, server_ads)
                     break
@@ -132,7 +140,8 @@ class Client:
                     self.stop()
                     break
                 elif message[:17] == "starting download":
-                    file_name = message[17:-3]
+                    file_name = message[19:-1]
+                    print(file_name)
                     print("OK")
                     self.sock.send("OK".encode('utf-8'))
                     download_thread = threading.Thread(target=self.download, args=(file_name,))

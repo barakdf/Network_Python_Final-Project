@@ -20,7 +20,7 @@ server.listen()
 """
 members: (socket,) = []
 IDS = []
-server_files = ["One.txt", "Two.txt", "Three.txt"]
+server_files = ["One.txt", "Two.txt", "Three.txt", "ex.txt"]
 
 """
  open 'receive function' to listen for connection ,
@@ -55,7 +55,9 @@ def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
     for i in range(checked_ack, send_base + N):
         packet = file[(send_base + i) * block: ((send_base + i) * block) + block]
 
-        seq_num = checked_ack + i
+        # print("SEQ", i)
+
+        seq_num = i
         packet_len = len(packet)
 
         full_packet = f"{seq_num}#{file_len}#{packet_len}#{packet}".encode("utf-8")
@@ -73,7 +75,6 @@ def download_file(client, file_name):
         with open(file_name, 'r') as f:
             file = f.read()
             client.sendto("file read successfully\n".encode("utf-8"), c_address)
-            transfer_sock.close()
 
     except Exception:
         f_error = "Error accrued while reading the file\n"
@@ -89,8 +90,9 @@ def download_file(client, file_name):
     pack_count = 0
     pack_loss = 0
 
+    checked_ack = send_base
     while send_base < last_packet:
-        checked_ack = send_base
+        print("HERE")
         pack_count += 1
         RTT = time.time()
         for i in range(N):
@@ -106,13 +108,15 @@ def download_file(client, file_name):
                 continue
 
             reply = ACK.decode('utf-8')
+            print("ACKED =  ", reply)
 
-            if reply == checked_ack:
-                checked_ack += 1
-
-            elif reply == "done":
+            if reply == "done":
                 if checked_ack == last_packet:
                     break
+
+            elif int(reply) == checked_ack:
+                print("CHECKED", checked_ack)
+                checked_ack += 1
 
             elif (int(reply) > checked_ack) or (time.time() - delay > RTT):
                 pack_loss += 1
@@ -163,24 +167,27 @@ def handle(client):
                 print(server_files)
                 client.send(f"server files: {server_files}\n".encode('utf-8'))
 
-            elif readable_message == "OK\n":
-                print("changed status")
-                download_status = not download_status
-            # elif "download_file:" in readable_message:
-            #     file_name = readable_message.split(":")[2][:-3]
-            #     client.send(f"{file_name}---\n".encode("utf-8"))
-            #     file_exist = False
-            #     for f in server_files:
-            #         if f.__eq__(file_name):
-            #             file_exist = True
-            #             client.send(f"starting download: {file_name}\n".encode("utf-8"))
-            #             if download_status:
-            #                 UDP_SOCK = threading.Thread(target=download_file, args=(client, f))
-            #                 UDP_SOCK.start()
-            #
-            #     if not file_exist:
-            #         error_msg = "the requested file does not exist in server\n"
-            #         client.send(error_msg.encode('utf-8'))
+
+            elif "download_file:" in readable_message:
+                file_name = readable_message.split(":")[2][:-3]
+                client.send(f"{file_name}---\n".encode("utf-8"))
+                file_exist = False
+                for f in server_files:
+                    if f.__eq__(file_name):
+                        file_exist = True
+                        client.send(f"starting download: {file_name}\n".encode("utf-8"))
+                        message = client.recv(1024)
+                        if "OK" in str(message):
+                            print("changed status")
+                            download_status = True
+                        if download_status:
+                            print("Transferring")
+                            UDP_SOCK = threading.Thread(target=download_file, args=(client, f))
+                            UDP_SOCK.start()
+
+                if not file_exist:
+                    error_msg = "the requested file does not exist in server\n"
+                    client.send(error_msg.encode('utf-8'))
 
 
 

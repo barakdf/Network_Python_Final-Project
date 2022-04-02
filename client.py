@@ -62,6 +62,58 @@ class Client:
         self.sock.send(message.encode('utf-8'))
         self.input_area.delete('1.0', 'end')
 
+    def download(self, file):
+        transfer_port = 55001
+        transfer_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        with open("downloaded_file_" + file, 'w') as f:
+
+            packet_count = 0
+            transfer_sock.bind((HOST, transfer_port))
+
+            while True:
+
+                try:
+                    (packet, server_ads) = transfer_sock.recvfrom(1024)
+                    # packet = packet.decode("utf-8")
+                except Exception:
+                    print("Error accrued while receiving file")
+                    continue
+
+                packet_message = packet.decode("utf-8").split('#')
+
+                seq_num = packet_message[0]
+                file_size = int(packet_message[1])
+                packet_len = int(packet_message[2])
+                packet_data = packet_message[3]
+
+                progress = 0
+
+                if int(seq_num) == packet_count:
+                    packet_count += 1
+
+                    f.write(packet_data)
+
+                    progress += packet_len
+
+                    percentage_progress = (progress / file_size) * 100
+                    print(percentage_progress)
+
+                    ACK = str(seq_num).encode("utf-8")
+                    transfer_sock.sendto(ACK, server_ads)
+
+                else:
+                    last_packet = str(packet_count).encode("utf-8")
+                    transfer_sock.sendto(last_packet, server_ads)
+
+                if packet_len < file_size:
+                    done = "done".encode("utf-8")
+                    transfer_sock.sendto(done, server_ads)
+                    break
+
+            transfer_sock.close()
+            print("Download Complete")
+
     def stop(self):
         self.running = False
         self.win.destroy()
@@ -79,6 +131,12 @@ class Client:
                     print("disconnected")
                     self.stop()
                     break
+                elif message[:17] == "starting download":
+                    file_name = message[17:-3]
+                    print("OK")
+                    self.sock.send("OK".encode('utf-8'))
+                    download_thread = threading.Thread(target=self.download, args=(file_name,))
+                    download_thread.start()
                 else:
                     if self.gui_done:
                         self.text_area.config(state='normal')

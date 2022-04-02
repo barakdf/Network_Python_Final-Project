@@ -20,7 +20,7 @@ server.listen()
 """
 members: (socket,) = []
 IDS = []
-server_files = ["One", "Two", "Three"]
+server_files = ["One.txt", "Two.txt", "Three.txt"]
 
 """
  open 'receive function' to listen for connection ,
@@ -63,8 +63,9 @@ def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
 
 
 def download_file(client, file_name):
-    client.send("Nice Choice".encode("utf-8"))
+    client.send("Nice Choice\n".encode("utf-8"))
     print("Nice")
+
     c_address = (client.getsockname()[0], transfer_port)
     transfer_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -118,6 +119,8 @@ def download_file(client, file_name):
                 send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
 
         send_base = checked_ack
+        print("send packet --> ", send_base)
+        print("packet loss --> ", pack_loss)
 
     transfer_sock.close()
 
@@ -130,6 +133,7 @@ def disconnect(client):
 
 
 def handle(client):
+    download_status = False
     while True:
         try:
             message = client.recv(1024)
@@ -159,19 +163,24 @@ def handle(client):
                 print(server_files)
                 client.send(f"server files: {server_files}\n".encode('utf-8'))
 
-            elif "download_file:" in readable_message:
-                file_name = readable_message.split(":")[2][:-3]
-                client.send(f"{file_name}---\n".encode("utf-8"))
-                file_exist = False
-                for f in server_files:
-                    if f.__eq__(file_name):
-                        file_exist = True
-                        UDP_SOCK = threading.Thread(target=download_file, args=(client, f))
-                        UDP_SOCK.start()
-
-                if not file_exist:
-                    error_msg = "the requested file does not exist in server\n"
-                    client.send(error_msg.encode('utf-8'))
+            elif readable_message == "OK\n":
+                print("changed status")
+                download_status = not download_status
+            # elif "download_file:" in readable_message:
+            #     file_name = readable_message.split(":")[2][:-3]
+            #     client.send(f"{file_name}---\n".encode("utf-8"))
+            #     file_exist = False
+            #     for f in server_files:
+            #         if f.__eq__(file_name):
+            #             file_exist = True
+            #             client.send(f"starting download: {file_name}\n".encode("utf-8"))
+            #             if download_status:
+            #                 UDP_SOCK = threading.Thread(target=download_file, args=(client, f))
+            #                 UDP_SOCK.start()
+            #
+            #     if not file_exist:
+            #         error_msg = "the requested file does not exist in server\n"
+            #         client.send(error_msg.encode('utf-8'))
 
 
 

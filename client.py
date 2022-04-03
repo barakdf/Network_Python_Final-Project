@@ -14,6 +14,8 @@ c_transfer_port = {55006: True, 55007: True, 55008: True, 55009: True, 55010: Tr
 class Client:
 
     def __init__(self, host, port):
+
+        self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
 

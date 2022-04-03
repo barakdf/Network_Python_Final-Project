@@ -20,7 +20,7 @@ server.listen()
 """
 members: (socket,) = []
 IDS = []
-server_files = ["One.txt", "Two.txt", "Three.txt", "ex.txt"]
+server_files = ["One.txt", "Two.txt", "Three.txt"]
 
 """
  open 'receive function' to listen for connection ,
@@ -152,7 +152,7 @@ def disconnect(client):
     members.remove(client)
     client.close()
     IDS.pop(index)
-    broadcast("Update_members".encode("utf-8"))
+    client.send(f"To_list:{get_online_members()}".encode('utf-8'))
 
 
 def handle(client):
@@ -253,18 +253,16 @@ def server_lobby():
         """ adding the new member """
         IDS.append(client_id)
         members.append(client)
-        # client.send(f"To_list:{get_online_members()}".encode('utf-8'))
+        client.send(f"To_list:{get_online_members()}".encode('utf-8'))
 
         """ finish connectivity steps """
         print(f"ID of the member is {client_id}")
         broadcast(f"{client_id} has joined the chat\n".encode('utf-8'))
-        client.send("successfully connected to the server".encode('utf-8'))
+        client.send("successfully connected to the server\n".encode('utf-8'))
 
         """ opening a communication thread for the client """
         client_thread = threading.Thread(target=handle, args=(client,))
         client_thread.start()
-        broadcast("Update_members".encode("utf-8"))
-
 
 print("server running")
 server_lobby()

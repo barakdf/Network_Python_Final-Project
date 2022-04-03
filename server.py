@@ -4,7 +4,8 @@ import time
 
 HOST = '127.0.0.1'  # local host address.
 PORT = 55000
-transfer_port = 55001
+transfer_port = {55001: True, 55002: True, 55003: True, 55004: True, 55005: True}
+server_busy = False
 
 block = 500
 N = 5
@@ -74,14 +75,20 @@ def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
 def download_file(client, file_name):
     client.send("Nice Choice\n".encode("utf-8"))
     print("Nice")
+    available_transfer_port = 0
+    for p in transfer_port:
+        if transfer_port[p]:
+            available_transfer_port = p
+            transfer_port[p] = False
+            break
 
-    c_address = (client.getsockname()[0], transfer_port)
+    c_address = (client.getsockname()[0], available_transfer_port)
     transfer_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     try:
         with open(file_name, 'r') as f:
             file = f.read()
-            client.sendto("file read successfully\n".encode("utf-8"), c_address)
+            client.sendto(f"PORT USE: {available_transfer_port}, file read successfully\n".encode("utf-8"), c_address)
 
     except Exception:
         f_error = "Error accrued while reading the file\n"
@@ -111,7 +118,7 @@ def download_file(client, file_name):
         while checked_ack < send_base + N - 1:
             delay = time.time()
             try:
-                (ACK, address) = transfer_sock.recvfrom(1024)
+                (ACK, c_address) = transfer_sock.recvfrom(1024)
             except:
                 continue
 
@@ -135,7 +142,10 @@ def download_file(client, file_name):
         send_base = checked_ack
 
     transfer_sock.close()
-    client.send(f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}".encode("utf-8"))
+    client.send(
+        f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}, packet_loss: {pack_loss}, PORT: {available_transfer_port}".encode(
+            "utf-8"))
+    transfer_port[available_transfer_port] = True
 
 
 def disconnect(client):
@@ -147,6 +157,7 @@ def disconnect(client):
 
 
 def handle(client):
+    global server_busy
     download_status = False
     new_client = True
     while True:
@@ -187,6 +198,9 @@ def handle(client):
 
 
             elif "download_file:" in readable_message:
+                while server_busy:
+                    client.send("server_busy\n".encode("utf-8"))
+                    time.sleep(1)
                 file_name = readable_message.split(":")[2][:-3]
                 client.send(f"{file_name}---\n".encode("utf-8"))
                 file_exist = False
@@ -199,9 +213,12 @@ def handle(client):
                             print("changed status")
                             download_status = True
                         if download_status:
+                            server_busy = True
                             print("Transferring")
                             UDP_SOCK = threading.Thread(target=download_file, args=(client, f))
                             UDP_SOCK.start()
+                            file_exist = False
+                            server_busy = False
 
                 if not file_exist:
                     error_msg = "the requested file does not exist in server\n"
@@ -251,6 +268,7 @@ def server_lobby():
         client_thread = threading.Thread(target=handle, args=(client,))
         client_thread.start()
         broadcast("Update_members".encode("utf-8"))
+
 
 print("server running")
 server_lobby()

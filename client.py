@@ -4,9 +4,11 @@ import tkinter
 from time import sleep
 from tkinter import simpledialog
 import tkinter.scrolledtext
+from tkinter.ttk import Progressbar
 
 HOST = '127.0.0.1'
 PORT = 55000
+c_transfer_port = {55001: True, 55002: True, 55003: True, 55004: True, 55005: True}
 
 
 class Client:
@@ -89,8 +91,25 @@ class Client:
         self.send_button.config(font=("Ariel", 12))
         # self.send_button.pack(padx=20, pady=5)
         self.send_button.grid(row=5, column=1, pady=5)
-        self.gui_done = True
 
+        """ ----------- DOWNLOAD ----------"""
+
+        self.download_button = tkinter.Button(self.win, text="Download", command=self.ask_for_download)
+        self.download_button.config(font=("Ariel", 12))
+        self.download_button.place(x=120, y=615)
+
+        self.file_choose = tkinter.Text(self.win, width=10, height=2, bg="#FFFAFA")
+        self.file_choose.grid(row=6, column=0, pady=5)
+
+        self.proceed_button = tkinter.Button(self.win, text="Proceed", command=self.tranfer_to_download)
+        self.proceed_button.config(font=("Ariel", 12))
+        self.proceed_button.place(x=230, y=615)
+        self.proceed_button["state"] = tkinter.DISABLED
+
+        self.progress_bar = Progressbar(self.win, orient=tkinter.HORIZONTAL, length=200, mode='determinate')
+        self.progress_bar.place(x=340, y=615)
+
+        self.gui_done = True
         self.win.protocol("WM_DELETE_WINDOW", self.stop)
 
         self.win.mainloop()
@@ -113,16 +132,50 @@ class Client:
     def ask_server_files(self):
         self.sock.send("get_file_list".encode("utf-8"))
 
-    def download(self, file):
-        transfer_port = 55001
+    def ask_for_download(self):
+        self.progress_bar['value'] = 0
+        ask_file = f"download_file:{self.file_choose.get('1.0', 'end')}"
+        print("THE FILE", ask_file)
+        self.sock.send(f"{self.id}: {ask_file}".encode("utf-8"))
+        try:
+            message = self.sock.recv(1024).decode('utf-8')
+            while message == "server_busy\n":
+                message = self.sock.recv(1024).decode('utf-8')
+            if message[:17] == "starting download":
+                self.proceed_button["state"] = tkinter.NORMAL
+                self.text_area.config(state='normal')
+                self.text_area.insert('end', "ready to proceed with download, chosen file: ")
+                self.text_area.yview('end')
+                self.text_area.config(state='disabled')
+            else:
+                self.text_area.config(state='normal')
+                self.text_area.insert('end', message)
+                self.text_area.yview('end')
+                self.text_area.config(state='disabled')
+        except:
+            print("PROCCED BUTTON ERROR")
+
+    def tranfer_to_download(self):
+        file_name = f"{self.file_choose.get('1.0', 'end')}"
+        self.sock.send("OK".encode('utf-8'))
+        download_thread = threading.Thread(target=self.download, args=(file_name,))
+        download_thread.start()
+
+    def download(self, file: str):
+        client_transfer_port = 0
+        for p in c_transfer_port:
+            if c_transfer_port[p]:
+                client_transfer_port = p
+                c_transfer_port[p] = False
+                break
         transfer_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         print("ready ro receive")
+        file = file.replace("\n", "")
 
         with open(f"downloaded_file_{file}", 'w') as f:
 
             packet_count = 0
-            transfer_sock.bind((HOST, transfer_port))
-            sleep(1)
+            transfer_sock.bind((HOST, client_transfer_port))
 
             while True:
 
@@ -131,6 +184,7 @@ class Client:
                     # packet = packet.decode("utf-8")
                 except Exception:
                     print("Error accrued while receiving file")
+                    c_transfer_port[client_transfer_port] = True
                     continue
 
                 packet_message = packet.decode("utf-8").split('#')
@@ -153,9 +207,10 @@ class Client:
                     f.write(packet_data)
 
                     progress += packet_len
-
-                    percentage_progress = (progress / file_size) * 100
-                    print(percentage_progress)
+                    if file_size > 0:
+                        percentage_progress = (progress / file_size) * 100
+                        print(percentage_progress)
+                        self.progress_bar['value'] += percentage_progress
 
                     ACK = str(seq_num).encode("utf-8")
                     transfer_sock.sendto(ACK, server_ads)
@@ -170,7 +225,10 @@ class Client:
                     break
 
             transfer_sock.close()
+            self.proceed_button["state"] = tkinter.DISABLED
+            self.file_choose.delete('1.0', 'end')
             print("Download Complete")
+            c_transfer_port[client_transfer_port] = True
 
     def stop(self):
         self.running = False

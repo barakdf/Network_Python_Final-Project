@@ -4,8 +4,7 @@ import time
 
 HOST = '127.0.0.1'  # local host address.
 PORT = 55000
-transfer_port = {55001: True, 55002: True, 55003: True, 55004: True, 55005: True}
-server_busy = False
+transfer_port = {55006: True, 55007: True, 55008: True, 55009: True, 55010: True}
 
 block = 500
 N = 5

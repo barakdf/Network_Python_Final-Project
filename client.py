@@ -8,7 +8,7 @@ from tkinter.ttk import Progressbar
 
 HOST = '127.0.0.1'
 PORT = 55000
-c_transfer_port = {55001: True, 55002: True, 55003: True, 55004: True, 55005: True}
+c_transfer_port = {55006: True, 55007: True, 55008: True, 55009: True, 55010: True}
 
 
 class Client:

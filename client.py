@@ -162,6 +162,15 @@ class Client:
         download_thread = threading.Thread(target=self.download, args=(file_name,))
         download_thread.start()
 
+    """Download server files from server to client using "fast reliable UDP",
+                we implemented this method by "Go back N":
+                in this function we will describe the client side (receiver)
+                open new UDP socket and wait for data from the server,
+                we get we extract the data from each packet we receive,
+                we use this information to send ACK to the server and indicate when its the last packet.
+                if the seq_num of the packet does not match the seq_num we expect we send it back to the sender
+                if the packet length < 500 it means its the last packet because each packet should contain up to 500 if available"""
+
     def download(self, file: str):
         client_transfer_port = 0
         for p in c_transfer_port:

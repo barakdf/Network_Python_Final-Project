@@ -71,21 +71,6 @@ def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
     return last_byte
 
 
-""" Download server files from server to client using "fast reliable UDP",
-    we implemented this method by "Go back N":
-    in this function we will describe the server side (Sender)
-    
-    divide the requested file to packets. (each packet contain block of 500)
-    using sliding window with size N (5)
-    sending all the packets, and waiting for ACK from the client side,
-    for each slide window we send we measure the time of it and initialize it as RTT.
-    each ACK contain a seq_num that needs to be match the last seq_num of the last checked packet
-    if we got wrong packet, or the time runs out (RTT) we send again the slide window starting from the last checked packet
-    and increase the packet loss counter.
-    each packet contain the details {seq_number, file length, packet length, packet}
-    when we get ack on the last packet ("done" message by the client) we close the connection"""
-
-
 def download_file(client, file_name):
     client.send("Nice Choice\n".encode("utf-8"))
     print("Nice")

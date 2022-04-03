@@ -139,10 +139,9 @@ class Client:
         self.sock.send(f"{self.id}: {ask_file}".encode("utf-8"))
         try:
             message = self.sock.recv(1024).decode('utf-8')
-            while message == "server_busy\n":
-                message = self.sock.recv(1024).decode('utf-8')
             if message[:17] == "starting download":
                 self.proceed_button["state"] = tkinter.NORMAL
+                self.download_button["state"] = tkinter.DISABLED
                 self.text_area.config(state='normal')
                 self.text_area.insert('end', "ready to proceed with download, chosen file: ")
                 self.text_area.yview('end')
@@ -226,6 +225,7 @@ class Client:
 
             transfer_sock.close()
             self.proceed_button["state"] = tkinter.DISABLED
+            self.download_button["state"] = tkinter.NORMAL
             self.file_choose.delete('1.0', 'end')
             print("Download Complete")
             c_transfer_port[client_transfer_port] = True

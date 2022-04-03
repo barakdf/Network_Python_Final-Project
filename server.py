@@ -142,7 +142,7 @@ def download_file(client, file_name):
 
     transfer_sock.close()
     client.send(
-        f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}, packet_loss: {pack_loss}, PORT: {available_transfer_port}".encode(
+        f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}, packet_loss: {pack_loss}, PORT: {available_transfer_port}\n".encode(
             "utf-8"))
     transfer_port[available_transfer_port] = True
 
@@ -197,9 +197,6 @@ def handle(client):
 
 
             elif "download_file:" in readable_message:
-                while server_busy:
-                    client.send("server_busy\n".encode("utf-8"))
-                    time.sleep(1)
                 file_name = readable_message.split(":")[2][:-3]
                 client.send(f"{file_name}---\n".encode("utf-8"))
                 file_exist = False
@@ -212,11 +209,11 @@ def handle(client):
                             print("changed status")
                             download_status = True
                         if download_status:
-                            server_busy = True
+
                             print("Transferring")
                             UDP_SOCK = threading.Thread(target=download_file, args=(client, f))
                             UDP_SOCK.start()
-                            file_exist = False
+                            # file_exist = False
                             server_busy = False
 
                 if not file_exist:

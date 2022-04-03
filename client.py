@@ -23,6 +23,8 @@ class Client:
         self.gui_done = False
         self.running = True
 
+        self.participant = ["All"]
+
         gui_thread = threading.Thread(target=self.gui_loop)
         receive_thread = threading.Thread(target=self.receive)
 
@@ -31,27 +33,62 @@ class Client:
 
     def gui_loop(self):
         self.win = tkinter.Tk()
-        self.win.configure(bg="lightblue")
+        self.win.configure(bg="#A9A9A9")
+
+        self.disconnect_button = tkinter.Button(self.win, text="Disconnect", command=self.stop, width=10)
+        self.disconnect_button.config(font=("Ariel", 14))
+        # self.disconnect_button.pack(padx=20, pady=5)
+        # self.disconnect_button.place(x=20, y=20)
+        self.disconnect_button.grid(row=0, column=0)
+
+        self.user_label = tkinter.Label(self.win, text=f"username: {self.id} | address: {HOST}")
+        self.user_label.config(font=("Ariel", 14))
+        self.user_label.grid(row=0, column=1)
+        # self.user_label.pack()
+
+        self.show_online = tkinter.Button(self.win, text="show online", command=self.ask_show_online, width=10)
+        self.show_online.config(font=("Ariel", 14))
+        # self.show_online.pack()
+        # self.show_online.place(x=560, y=20)
+        self.show_online.grid(row=0, column=2)
+
+        self.server_files = tkinter.Button(self.win, text="Server Files", command=self.ask_server_files, width=10)
+        self.server_files.config(font=("Ariel", 14))
+        # self.server_files.place(x=560, y=65)
+        self.server_files.grid(row=1, column=2)
 
         self.chat_label = tkinter.Label(self.win, text="chat:", bg="lightgray")
         self.chat_label.config(font=("Ariel", 14))
-        self.chat_label.pack(padx=20, pady=5)
+        # self.chat_label.place(x=50, y=20)
+        # self.chat_label.pack(padx=20, pady=20)
+        self.chat_label.grid(row=1, column=1)
 
-        self.text_area = tkinter.scrolledtext.ScrolledText(self.win)
-        self.text_area.pack(padx=20, pady=5)
+        self.text_area = tkinter.scrolledtext.ScrolledText(self.win, bg="#FFFAFA")
+        # self.text_area.pack(padx=20, pady=5)
         self.text_area.config(state='disabled')
+        self.text_area.grid(row=2, column=1)
 
         self.message_label = tkinter.Label(self.win, text="Message:", bg="lightgray")
         self.message_label.config(font=("Ariel", 14))
-        self.message_label.pack(padx=20, pady=5)
+        # self.message_label.pack(padx=20, pady=5)
+        self.message_label.grid(row=3, column=1, pady=10)
 
-        self.input_area = tkinter.Text(self.win, height=3)
-        self.input_area.pack(padx=20, pady=5)
+        """ ----------- PRIVATE -----------"""
+
+        self.message_to = tkinter.StringVar(self.win)
+        self.message_to.set("All")
+
+        self.private_message = tkinter.OptionMenu(self.win, self.message_to, "All", *self.participant)
+        self.private_message.grid(row=4, column=0)
+
+        self.input_area = tkinter.Text(self.win, height=3, bg="#FFFAFA")
+        # self.input_area.pack(padx=20, pady=5)
+        self.input_area.grid(row=4, column=1)
 
         self.send_button = tkinter.Button(self.win, text="Send", command=self.write)
         self.send_button.config(font=("Ariel", 12))
-        self.send_button.pack(padx=20, pady=5)
-
+        # self.send_button.pack(padx=20, pady=5)
+        self.send_button.grid(row=5, column=1, pady=5)
         self.gui_done = True
 
         self.win.protocol("WM_DELETE_WINDOW", self.stop)
@@ -59,9 +96,22 @@ class Client:
         self.win.mainloop()
 
     def write(self):
-        message = f"{self.id}: {self.input_area.get('1.0', 'end')}"
+        if self.message_to.get() == "All":
+            message = f"{self.id}: {self.input_area.get('1.0', 'end')}"
+        else:
+            message = f"{self.id}: message-{self.message_to.get()}: {self.input_area.get('1.0', 'end')}"
         self.sock.send(message.encode('utf-8'))
         self.input_area.delete('1.0', 'end')
+
+    def ask_show_online(self):
+        self.sock.send("get_online_members".encode("utf-8"))
+
+    def update_participants(self, text):
+        updated_list = text.split(',')
+        self.participant = updated_list
+
+    def ask_server_files(self):
+        self.sock.send("get_file_list".encode("utf-8"))
 
     def download(self, file):
         transfer_port = 55001
@@ -135,10 +185,18 @@ class Client:
                 print(message)
                 if message == "connect":
                     self.sock.send(self.id.encode('utf-8'))
+
+                elif message == "Update_members":
+                    print("got the message")
+                    self.sock.send("to_list".encode("utf-8"))
                 elif message == f"{self.id} has disconnected\n":
                     print("disconnected")
                     self.stop()
                     break
+                elif message.split(':')[0] == "To_list":
+                    print("participantos", self.participant)
+                    print("list", message.split(':')[1])
+                    self.update_participants(message.split(':')[1])
                 elif message[:17] == "starting download":
                     file_name = message[19:-1]
                     print(file_name)

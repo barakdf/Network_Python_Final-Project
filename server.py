@@ -143,10 +143,12 @@ def disconnect(client):
     members.remove(client)
     client.close()
     IDS.pop(index)
+    broadcast("Update_members".encode("utf-8"))
 
 
 def handle(client):
     download_status = False
+    new_client = True
     while True:
         try:
             message = client.recv(1024)
@@ -165,11 +167,18 @@ def handle(client):
                     client.send(
                         f"*private to ({addressee})* {message_info[0][2:]}: {message_data}\n".encode('utf-8'))
                 except:
+                    print(readable_message)
                     client.send(f"could not find the specific client\n".encode('utf-8'))
+
+
 
             # """ getting online members list """
             elif "get_online_members" in readable_message:
                 client.send(f"online members: {get_online_members()}\n".encode('utf-8'))
+
+            # """ get online list for private messaging """
+            elif "to_list" in readable_message:
+                client.send(f"To_list:{get_online_members()}".encode('utf-8'))
 
             # """ getting list of server files """
             elif "get_file_list" in readable_message:
@@ -231,6 +240,7 @@ def server_lobby():
         """ adding the new member """
         IDS.append(client_id)
         members.append(client)
+        # client.send(f"To_list:{get_online_members()}".encode('utf-8'))
 
         """ finish connectivity steps """
         print(f"ID of the member is {client_id}")
@@ -240,7 +250,7 @@ def server_lobby():
         """ opening a communication thread for the client """
         client_thread = threading.Thread(target=handle, args=(client,))
         client_thread.start()
-
+        broadcast("Update_members".encode("utf-8"))
 
 print("server running")
 server_lobby()

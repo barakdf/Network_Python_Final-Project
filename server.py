@@ -2,7 +2,7 @@ import socket
 import threading
 import time
 
-HOST = '192.168.1.138'  # local host address.
+HOST = 'localhost'  # local host address.
 PORT = 55000
 transfer_port = {55006: True, 55007: True, 55008: True, 55009: True, 55010: True}
 
@@ -190,6 +190,7 @@ def disconnect(client):
 
 
 def handle(client):
+    broadcast("Update_members".encode('utf-8'))
     global server_busy
     # new_client = True
     while True:
@@ -252,7 +253,6 @@ def handle(client):
                             print("Transferring")
                             UDP_SOCK = threading.Thread(target=download_file, args=(client, f, available_transfer_port))
                             UDP_SOCK.start()
-                            # file_exist = False
                             server_busy = False
 
                 if not file_exist:
@@ -266,6 +266,7 @@ def handle(client):
                 # client.send(f"{nicknames[clients.index(client)]} has disconnected".encode('utf-8'))
                 disconnect(client)
                 broadcast(f"{leaver} has disconnected\n".encode('utf-8'))
+                broadcast("Update_members".encode('utf-8'))
                 break
 
             else:
@@ -289,9 +290,9 @@ def server_lobby():
         client_id = client.recv(1024).decode('utf-8')
 
         """ adding the new member """
+        # broadcast(f"To_list:{get_online_members()}".encode('utf-8'))
         IDS.append(client_id)
         members.append(client)
-        client.send(f"To_list:{get_online_members()}".encode('utf-8'))
 
         """ finish connectivity steps """
         print(f"ID of the member is {client_id}")

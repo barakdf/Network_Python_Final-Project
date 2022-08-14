@@ -6,9 +6,8 @@ from tkinter import simpledialog
 import tkinter.scrolledtext
 from tkinter.ttk import Progressbar
 
-HOST = '192.168.1.138'
+HOST = 'localhost'
 PORT = 55000
-c_transfer_port = {55006: True, 55007: True, 55008: True, 55009: True, 55010: True}
 
 
 class Client:
@@ -85,7 +84,7 @@ class Client:
         self.message_to = tkinter.StringVar(self.win)
         self.message_to.set("All")
 
-        self.private_message = tkinter.OptionMenu(self.win, self.message_to, "All", *self.participant)
+        self.private_message = tkinter.OptionMenu(self.win, self.message_to,"All", *(self.participant))
         self.private_message.grid(row=4, column=0)
 
         self.input_area = tkinter.Text(self.win, height=3, bg="#FFFAFA")
@@ -131,8 +130,20 @@ class Client:
         self.sock.send("get_online_members".encode("utf-8"))
 
     def update_participants(self, text):
-        updated_list = text.split(',')
-        self.participant = updated_list
+        sleep(3)
+        # updated_list = text.split(',')
+        self.participant = text
+        print(self.participant)
+
+        # Reset var and delete all old options
+        self.message_to.set("All")
+        self.private_message['menu'].delete(0, 'end')
+
+        print("HERE")
+        # Insert list of new options (tk._setit hooks them up to var)
+        new_choices = ('one', 'two', 'three')
+        for choice in self.participant:
+            self.private_message['menu'].add_command(label=choice, command=tkinter._setit(self.message_to, choice))
 
     def ask_server_files(self):
         self.sock.send("get_file_list".encode("utf-8"))
@@ -196,7 +207,6 @@ class Client:
                     # packet = packet.decode("utf-8")
                 except Exception:
                     print("Error accrued while receiving file")
-                    c_transfer_port[client_transfer_port] = True # why close the port
                     continue
 
                 packet_message = packet.decode("utf-8").split('#')
@@ -240,7 +250,6 @@ class Client:
 
             transfer_sock.close()
             print("Download Complete")
-            c_transfer_port[client_transfer_port] = True
             self.proceed_button["state"] = tkinter.DISABLED
             self.download_button["state"] = tkinter.NORMAL
             self.file_choose.delete('1.0', 'end')
@@ -270,7 +279,11 @@ class Client:
                 elif message.split(':')[0] == "To_list":
                     print("participantos", self.participant)
                     print("list", message.split(':')[1])
-                    self.update_participants(message.split(':')[1])
+                    member_list = ["All"]
+                    for m in message.split(':')[1].split(','):
+                        if m != self.id:
+                            member_list.append(m)
+                    self.update_participants(member_list)
                 elif message[:17] == "starting download":
                     file_name = message[31:-1]
                     self.transfer_port = message[25:31]

@@ -2,10 +2,13 @@ import socket
 import threading
 import time
 
-HOST = '127.0.0.1'  # local host address.
+HOST = '192.168.1.138'  # local host address.
 PORT = 55000
 transfer_port = {55006: True, 55007: True, 55008: True, 55009: True, 55010: True}
 
+""" 
+    Data transfer.
+"""
 block = 500
 N = 5
 
@@ -41,6 +44,8 @@ def broadcast(message):
 """ functions between client and server only,
     this methods is for: getting chat info, change connectivity status etc """
 
+""" Chat info """
+
 
 def get_online_members():
     ids = [x for x in IDS]
@@ -51,13 +56,17 @@ def get_file_list():
     return server_files
 
 
+""" Method for Go back N algo """
+
+
 def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
     last_byte = ""
     for seq_num in range(checked_ack, send_base + N):
-        if seq_num == int(file_len / block) + 1:
+        if seq_num == int(file_len / block) + 1:  # if its the last packet - send the rest of data.
             packet = file[seq_num * block:]
         else:
-            packet = file[seq_num * block: ((seq_num + 1) * block)]
+            packet = file[seq_num * block: (
+                    (seq_num + 1) * block)]  # if its not the last packet - we keep the range at block size.
 
         # print("SEQ", i)
         print(seq_num)
@@ -65,7 +74,9 @@ def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
 
         full_packet = f"{seq_num}#{file_len}#{packet_len}#{packet}".encode("utf-8")
         transfer_sock.sendto(full_packet, c_address)
+        print("after sending \n", seq_num)
         last_byte = full_packet[-1]
+        print(int(file_len / block) + 1)
         if seq_num == int(file_len / block) + 1:
             break
     return last_byte
@@ -78,23 +89,19 @@ def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
     divide the requested file to packets. (each packet contain block of 500)
     using sliding window with size N (5)
     sending all the packets, and waiting for ACK from the client side,
-    for each slide window we send we measure the time of it and initialize it as RTT.
-    each ACK contain a seq_num that needs to be match the last seq_num of the last checked packet
+    for each slide window we send, we measure the time of it and initialize it as RTT.
+    each ACK contain a seq_num that needs to be match the last seq_num of the last checked packet.
     if we got wrong packet, or the time runs out (RTT) we send again the slide window starting from the last checked packet
     and increase the packet loss counter.
     each packet contain the details {seq_number, file length, packet length, packet}
     when we get ack on the last packet ("done" message by the client) we close the connection"""
 
 
-def download_file(client, file_name):
+def download_file(client, file_name, transfer_p):
+    available_transfer_port = transfer_p
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", transfer_p)
     client.send("Nice Choice\n".encode("utf-8"))
     print("Nice")
-    available_transfer_port = 0
-    for p in transfer_port:
-        if transfer_port[p]:
-            available_transfer_port = p
-            transfer_port[p] = False
-            break
 
     c_address = (client.getsockname()[0], available_transfer_port)
     transfer_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -110,10 +117,9 @@ def download_file(client, file_name):
         client.sendto(f_error.encode("utf-8"), c_address)
         transfer_sock.close()
 
-    time_measure = time.time()
     file_len = int(len(file))
-    print(file_len)
-    last_packet = int(file_len / block) + 1
+    print("file-len", file_len)
+    last_packet = int(file_len / block) + 1  # why +1 when its divide ok
     print("last packet", last_packet)
     send_base = 0
 
@@ -121,11 +127,13 @@ def download_file(client, file_name):
     pack_loss = 0
     last_byte = ""
     checked_ack = send_base
+    time.sleep(3)
     while send_base < last_packet:
         print("HERE")
         pack_count += 1
         RTT = time.time()
         last_byte = send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
+        print("END send forloop")
 
         RTT = time.time() - RTT
 
@@ -139,27 +147,38 @@ def download_file(client, file_name):
             reply = ACK.decode('utf-8')
             print("ACKED =  ", reply)
 
-            if reply == "done":
+            if reply == "done":  # for last packet.
                 if checked_ack == last_packet:
                     break
 
             elif int(reply) == checked_ack:
                 print("CHECKED", checked_ack)
                 checked_ack += 1
+                # send_base = checked_ack  # LAST CHANGE
 
-            elif (int(reply) > checked_ack) or (time.time() - delay > RTT):
-                pack_loss += 1
-                send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
+
+
+            elif (int(reply) > checked_ack) or (
+                    time.time() - delay > RTT):  # reply ack is greater than expected OR failed on RTT
+                pack_loss += 1  # increase the packet loss
+                send_file(c_address, transfer_sock, file, file_len, send_base,
+                          checked_ack)  # send again the window from the last acknowleged packet
 
         print("send packet --> ", send_base)
         print("packet loss --> ", pack_loss)
         send_base = checked_ack
 
     transfer_sock.close()
+    print("Done Transfering ~~~~~~~~~~~~~~~~~~~~~~~~~~")
     client.send(
-        f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}, packet_loss: {pack_loss}, PORT: {available_transfer_port}\n".encode(
+        f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}, packet_loss: {pack_loss},"
+        f" PORT: {available_transfer_port}\n".encode(
+
             "utf-8"))
     transfer_port[available_transfer_port] = True
+
+
+""" connectivity operation """
 
 
 def disconnect(client):
@@ -167,15 +186,15 @@ def disconnect(client):
     members.remove(client)
     client.close()
     IDS.pop(index)
-    client.send(f"To_list:{get_online_members()}".encode('utf-8'))
+    # client.send(f"To_list:{get_online_members()}".encode('utf-8'))
 
 
 def handle(client):
     global server_busy
-    download_status = False
-    new_client = True
+    # new_client = True
     while True:
         try:
+            download_status = False
             message = client.recv(1024)
             print(f"{IDS[members.index(client)]} says {message}")
             readable_message = str(message)
@@ -218,14 +237,20 @@ def handle(client):
                 for f in server_files:
                     if f.__eq__(file_name):
                         file_exist = True
-                        client.send(f"starting download: {file_name}\n".encode("utf-8"))
+                        available_transfer_port = 0
+                        for p in transfer_port:
+                            if transfer_port[p]:
+                                available_transfer_port = p
+                                transfer_port[p] = False
+                                break
+                        client.send(f"starting download: port: {available_transfer_port} {file_name}\n".encode("utf-8"))
                         message = client.recv(1024)
                         if "OK" in str(message):
                             print("changed status")
                             download_status = True
                         if download_status:
                             print("Transferring")
-                            UDP_SOCK = threading.Thread(target=download_file, args=(client, f))
+                            UDP_SOCK = threading.Thread(target=download_file, args=(client, f, available_transfer_port))
                             UDP_SOCK.start()
                             # file_exist = False
                             server_busy = False
@@ -235,13 +260,12 @@ def handle(client):
                     client.send(error_msg.encode('utf-8'))
 
 
-
-
             elif "disconnect" in readable_message:
                 print(f"{IDS[members.index(client)]} has disconnected")
+                leaver = IDS[members.index(client)]
                 # client.send(f"{nicknames[clients.index(client)]} has disconnected".encode('utf-8'))
-                broadcast(f"{IDS[members.index(client)]} has disconnected\n".encode('utf-8'))
                 disconnect(client)
+                broadcast(f"{leaver} has disconnected\n".encode('utf-8'))
                 break
 
             else:

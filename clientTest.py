@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from client import client, Client
 
-HOST = '127.0.0.1'
+HOST = 'localhost'
 PORT = 55000
 
 
@@ -18,6 +18,9 @@ class MyTestCase(unittest.TestCase):
 
         def ID(self):
             self.assertEqual(self.c.id, "Dvir")
+
+        # def online_members(self):
+        #     self.assertEqual(self.c.show_online)
 
 
 

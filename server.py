@@ -100,8 +100,13 @@ def send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack):
 def download_file(client, file_name, transfer_p):
     available_transfer_port = transfer_p
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", transfer_p)
-    client.send("Nice Choice\n".encode("utf-8"))
+    client.send("\nNice Choice\n".encode("utf-8"))
     print("Nice")
+
+    """ RTT Parameters """
+    alpha = 0.125
+    beta = 0.25
+    estimatedRTT = devRTT = 1
 
     c_address = (client.getsockname()[0], available_transfer_port)
     transfer_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -127,20 +132,37 @@ def download_file(client, file_name, transfer_p):
     pack_loss = 0
     last_byte = ""
     checked_ack = send_base
-    time.sleep(3)
+    # time.sleep(3)
     while send_base < last_packet:
-        print("HERE")
-        pack_count += 1
-        RTT = time.time()
-        last_byte = send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
-        print("END send forloop")
 
-        RTT = time.time() - RTT
+        pack_count += 1
+        last_byte = send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
 
         while checked_ack < send_base + N - 1:
-            delay = time.time()
             try:
+                timeoutInterval = estimatedRTT + 4 * devRTT
+                print("RTT IS: ", timeoutInterval)
+                # set timeout for socket receive
+                transfer_sock.settimeout(timeoutInterval)
+
+                sampleRTT = time.time()
+
+                # receive response from client
                 (ACK, c_address) = transfer_sock.recvfrom(1024)
+
+                # updating timeoutInterval
+                sampleRTT = time.time() - sampleRTT
+                estimatedRTT = (1 - alpha) * estimatedRTT + alpha * sampleRTT
+                devRTT = (1 - beta) * devRTT + beta * abs(sampleRTT - estimatedRTT)
+
+            # handle interval timeout
+            except socket.timeout as e:
+                err = e.args[0]
+                print("ERROR -> ", err)
+                if err == "timed out":
+                    send_file(c_address, transfer_sock, file, file_len, send_base, checked_ack)
+                continue
+
             except:
                 continue
 
@@ -154,27 +176,25 @@ def download_file(client, file_name, transfer_p):
             elif int(reply) == checked_ack:
                 print("CHECKED", checked_ack)
                 checked_ack += 1
-                # send_base = checked_ack  # LAST CHANGE
+                send_base = checked_ack
 
-
-
-            elif (int(reply) > checked_ack) or (
-                    time.time() - delay > RTT):  # reply ack is greater than expected OR failed on RTT
+            # reply ack is greater than expected
+            elif (int(reply) > checked_ack):
                 pack_loss += 1  # increase the packet loss
                 send_file(c_address, transfer_sock, file, file_len, send_base,
                           checked_ack)  # send again the window from the last acknowleged packet
 
         print("send packet --> ", send_base)
         print("packet loss --> ", pack_loss)
-        send_base = checked_ack
 
     transfer_sock.close()
     print("Done Transfering ~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    # final report about the transaction
     client.send(
         f"transfer complete, last byte: {last_byte}, last packet: {checked_ack}, packet_loss: {pack_loss},"
         f" PORT: {available_transfer_port}\n".encode(
-
             "utf-8"))
+    # free the used port
     transfer_port[available_transfer_port] = True
 
 
@@ -186,7 +206,6 @@ def disconnect(client):
     members.remove(client)
     client.close()
     IDS.pop(index)
-    # client.send(f"To_list:{get_online_members()}".encode('utf-8'))
 
 
 def handle(client):
@@ -214,8 +233,6 @@ def handle(client):
                 except:
                     print(readable_message)
                     client.send(f"could not find the specific client\n".encode('utf-8'))
-
-
 
             # """ getting online members list """
             elif "get_online_members" in readable_message:

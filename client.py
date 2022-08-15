@@ -34,14 +34,14 @@ class Client:
 
         gui_thread.start()
         receive_thread.start()
-        threading.Thread.join(gui_thread)
-        threading.Thread.join(receive_thread)
+        # threading.Thread.join(receive_thread)
+        # threading.Thread.join(gui_thread)
 
     def gui_loop(self):
         self.win = tkinter.Tk()
         self.win.configure(bg="#A9A9A9")
 
-        self.disconnect_button = tkinter.Button(self.win, text="Disconnect", command=self.stop, width=10)
+        self.disconnect_button = tkinter.Button(self.win, text="Disconnect", command=self.stop, width=10, bg='#DC143C')
         self.disconnect_button.config(font=("Ariel", 14))
         # self.disconnect_button.pack(padx=20, pady=5)
         # self.disconnect_button.place(x=20, y=20)
@@ -258,6 +258,7 @@ class Client:
         self.running = False
         self.win.destroy()
         self.sock.send("disconnect".encode('utf-8'))
+        
         self.sock.close()
         exit(0)
 

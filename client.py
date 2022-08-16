@@ -29,11 +29,11 @@ class Client:
 
         self.participant = ["All"]
 
-        gui_thread = threading.Thread(target=self.gui_loop)
-        receive_thread = threading.Thread(target=self.receive)
+        self.gui_thread = threading.Thread(target=self.gui_loop)
+        self.receive_thread = threading.Thread(target=self.receive)
 
-        gui_thread.start()
-        receive_thread.start()
+        self.gui_thread.start()
+        self.receive_thread.start()
         # threading.Thread.join(receive_thread)
         # threading.Thread.join(gui_thread)
 
@@ -130,7 +130,8 @@ class Client:
         self.sock.send("get_online_members".encode("utf-8"))
 
     def update_participants(self, text):
-        sleep(3)
+        while not self.gui_done:
+            sleep(0.5)
         # updated_list = text.split(',')
         self.participant = text
         print(self.participant)
@@ -258,7 +259,7 @@ class Client:
         self.running = False
         self.win.destroy()
         self.sock.send("disconnect".encode('utf-8'))
-        
+
         self.sock.close()
         exit(0)
 

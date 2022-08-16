@@ -176,7 +176,7 @@ def download_file(client, file_name, transfer_p):
             elif int(reply) == checked_ack:
                 print("CHECKED", checked_ack)
                 checked_ack += 1
-                send_base = checked_ack
+                # send_base = checked_ack
 
             # reply ack is greater than expected
             elif (int(reply) > checked_ack):
@@ -186,6 +186,7 @@ def download_file(client, file_name, transfer_p):
 
         print("send packet --> ", send_base)
         print("packet loss --> ", pack_loss)
+        send_base = checked_ack
 
     transfer_sock.close()
     print("Done Transfering ~~~~~~~~~~~~~~~~~~~~~~~~~~")
